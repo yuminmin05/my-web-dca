@@ -1,0 +1,104 @@
+.stock-live-card {
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+    max-width: 580px;
+    color: white;
+    font-family: Inter, system-ui, sans-serif;
+    margin-bottom: 1rem;
+}
+
+.stock-live-card--positive {
+    background: linear-gradient(135deg, #047857 0%, #10b981 100%);
+}
+
+.stock-live-card--negative {
+    background: linear-gradient(135deg, #b91c1c 0%, #f97316 100%);
+}
+
+.stock-live-card--neutral {
+    background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+}
+
+.stock-live-card--empty {
+    background: linear-gradient(135deg, #334155 0%, #475569 100%);
+    min-height: 160px;
+}
+
+.stock-live-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 18px;
+}
+
+.stock-live-card__symbol {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.stock-live-card__label {
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    opacity: 0.85;
+    letter-spacing: 0.16em;
+}
+
+.stock-live-card__body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+}
+
+.stock-live-card__price {
+    font-size: 3.4rem;
+    line-height: 1;
+    font-weight: 800;
+}
+
+.stock-live-card__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.55rem;
+}
+
+.stock-live-card__note {
+    font-size: 0.95rem;
+    opacity: 0.9;
+    line-height: 1.55;
+    max-width: 85%;
+}
+
+.stock-live-card__movement {
+    font-size: 1.3rem;
+    font-weight: 700;
+    opacity: 0.95;
+}
+
+.stock-live-card__footer {
+    margin-top: 16px;
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.button-view-settrade {
+    background-color: #065f46 !important;
+    color: #ffffff !important;
+    border-radius: 0.6rem !important;
+    padding: 0.55rem 1rem !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+}
+
+.button-view-settrade:hover {
+    background-color: #047857 !important;
+}
+
+.changeform .field-stock-live-card__title {
+    font-size: 1.25rem !important;
+}

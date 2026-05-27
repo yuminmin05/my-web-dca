@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DCA Investment Dashboard | GA Optimized</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+
+<body class="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 min-h-screen p-6 md:p-10 font-sans">
+
+<div class="max-w-7xl mx-auto">
+
+    <div class="flex justify-between items-center mb-10">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-extrabold text-white tracking-wide">
+                DCA Investment Dashboard
+            </h1>
+            <p class="text-emerald-200 text-sm mt-1">
+                Genetic Algorithm Portfolio Optimization
+            </p>
+        </div>
+
+        <div class="flex space-x-3">
+            <button onclick="downloadPDF()" class="bg-emerald-600 text-white border border-emerald-500 px-6 py-2 rounded-xl font-semibold shadow-lg hover:bg-emerald-500 transition-all flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                ดาวน์โหลด PDF
+            </button>
+
+            <form method="POST" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit"
+                    class="bg-white text-emerald-800 px-6 py-2 rounded-xl font-semibold shadow hover:bg-emerald-50 transition-all">
+                    ออกจากระบบ
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="printable-area" class="p-2 -mx-2 rounded-2xl">
+        
+        <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 mb-8 html2pdf__page-break-avoid">
+            <h2 class="font-bold text-xl text-gray-800 mb-6">
+                เลือกหุ้น SET50 สำหรับการลงทุนแบบ DCA
+            </h2>
+
+            <form method="POST" action="{% url 'dashboard' %}">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-8 gap-3 h-48 overflow-y-auto p-4 border rounded-xl mb-6 bg-gray-50">
+                    {% for stock in set50_stocks %}
+                    <label class="flex items-center space-x-2 p-3 bg-white border rounded-lg cursor-pointer hover:border-emerald-600 transition">
+                        <input type="checkbox" name="selected_stocks"
+                            value="{{ stock.symbol }}"
+                            {% if stock.symbol in selected_assets %}checked{% endif %}
+                            class="w-4 h-4 text-emerald-700">
+                        <span class="text-xs font-bold text-gray-700">{{ stock.symbol }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+
+                <button id="btn-calc" type="submit"
+                    class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-10 rounded-xl shadow-lg transition">
+                    คำนวณ GA Optimization ใหม่
+                </button>
+            </form>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 flex flex-col justify-between html2pdf__page-break-avoid">
+                <div>
+                    <h2 class="font-bold text-lg text-gray-800 mb-6">
+                        สรุปผลการลงทุน (GA)
+                    </h2>
+
+                    <p class="text-gray-400 text-sm mb-1">ผลตอบแทนคาดหวัง</p>
+                    <p class="text-3xl font-extrabold text-emerald-700 mb-6">
+                        +{{ total_return_percent }} / ปี
+                    </p>
+
+                    <p class="text-gray-400 text-sm mb-1">Sharpe Ratio</p>
+                    <p class="text-xl font-bold text-emerald-800 mb-6">
+                        {{ sharpe_ratio }}
+                    </p>
+
+                    <p class="text-gray-600 font-bold text-sm mb-3 border-t pt-4">
+                        สัดส่วนการลงทุนที่เหมาะสมที่สุด
+                    </p>
+
+                    <div class="space-y-3">
+                        {% for w in weights_display %}
+                        <div class="flex justify-between text-sm font-medium">
+                            <span>{{ w.symbol }}</span>
+                            <span>{{ w.percent }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-emerald-700 h-2 rounded-full"
+                                 style="width: {{ w.percent }}%">
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-2 bg-white p-8 rounded-2xl shadow-xl border border-gray-100 html2pdf__page-break-avoid">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="font-bold text-gray-800">
+                        คาดการณ์มูลค่าพอร์ตใน {{ duration_years }} ปี
+                    </h2>
+
+                    <div class="text-right">
+                        <p class="text-xs text-gray-400">
+                            มูลค่าพอร์ตเมื่อสิ้นสุดแผน
+                        </p>
+                        <p class="text-xl font-bold {% if is_target_reached %}text-emerald-700{% else %}text-orange-500{% endif %}">
+                            {{ final_portfolio_value }} ฿
+                        </p>
+                        <p class="text-sm mt-2 text-gray-500">
+                            {{ target_message }}
+                        </p>
+                    </div>
+                </div>
+
+                <canvas id="myChart" height="120"></canvas>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 md:col-span-3 html2pdf__page-break-avoid">
+                <h2 class="font-bold text-gray-800 text-lg mb-6">
+                    ตั้งค่าเป้าหมายและเงินลงทุน
+                </h2>
+
+                <form method="POST" action="{% url 'update_investment' %}"
+                      class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {% csrf_token %}
+
+                    <div>
+                        <label class="text-xs text-gray-500">
+                            เงินลงทุนต่อเดือน (บาท)
+                        </label>
+                        <input type="number" name="monthly_investment_input"
+                               value="{{ monthly_investment_raw|floatformat:0 }}"
+                               class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-gray-500">
+                            ระยะเวลาลงทุน (ปี)
+                        </label>
+                        <input type="number" name="duration_years_input"
+                               value="{{ duration_years }}"
+                               class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-gray-500">
+                            เป้าหมายทางการเงิน (บาท)
+                        </label>
+                        <input type="number" name="target_amount_input"
+                               value="{{ target_amount_raw|floatformat:0 }}"
+                               class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
+                    </div>
+
+                    <div class="flex items-end">
+                        <button id="btn-save" type="submit"
+                            class="w-full bg-emerald-900 hover:bg-emerald-800 text-white px-4 py-3 rounded-xl font-bold shadow-lg transition">
+                            บันทึกและคำนวณกราฟ
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+    </div>
+
+<script>
+    // ==========================================
+    // 1. โค้ดสำหรับวาดกราฟ Chart.js
+    // ==========================================
+    const ctx = document.getElementById('myChart').getContext('2d');
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(16,185,129,0.4)');
+    gradient.addColorStop(1, 'rgba(16,185,129,0.05)');
+
+    const chartLabels = {{ chart_labels|safe }};
+    const chartData = {{ chart_data|safe }};
+    const targetAmount = {{ target_amount_raw|floatformat:0 }};
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    label: 'มูลค่าพอร์ตสะสม',
+                    data: chartData,
+                    borderColor: '#047857',
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 3
+                },
+                {
+                    label: 'เป้าหมาย',
+                    data: Array(chartLabels.length).fill(targetAmount),
+                    borderColor: '#dc2626',
+                    borderDash: [6, 6],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        font: { size: 13, weight: '600' }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color: 'rgba(0,0,0,0.05)' } }
+            }
+        }
+    });
+
+    // ==========================================
+    // 2. โค้ดสำหรับดาวน์โหลดหน้าเว็บเป็น PDF
+    // ==========================================
+    function downloadPDF() {
+        // 1. ซ่อนปุ่มต่างๆ ชั่วคราวเพื่อให้เอกสารดูเป็นระเบียบ ไม่มีปุ่มติดไปใน PDF
+        document.getElementById('btn-calc').style.display = 'none';
+        document.getElementById('btn-save').style.display = 'none';
+        
+        // 2. เลือกพื้นที่ที่ต้องการทำ PDF (เราใส่ id="printable-area" ไว้ครอบกล่องข้อมูลทั้งหมดแล้ว)
+        const element = document.getElementById('printable-area');
+        
+        // 3. ตั้งค่าไฟล์ PDF
+        const opt = {
+            margin:       10, // ขอบกระดาษ 10mm
+            filename:     'แผนการลงทุน_DCA_System.pdf', // ชื่อไฟล์
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true }, // เพิ่มความคมชัด
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' } // กระดาษ A4 แนวนอน
+        };
+
+        // 4. สั่งให้ไลบรารีสร้าง PDF แล้วบันทึกลงเครื่อง
+        html2pdf().set(opt).from(element).save().then(() => {
+            // 5. เมื่อโหลดเสร็จแล้ว ให้เปิดแสดงปุ่มกลับมาเหมือนเดิม
+            document.getElementById('btn-calc').style.display = 'block';
+            document.getElementById('btn-save').style.display = 'block';
+        });
+    }
+</script>
+
+</body>
+</html>

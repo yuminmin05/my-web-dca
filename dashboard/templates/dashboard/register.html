@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สมัครสมาชิก | A Smart System for DCA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(135deg, #064e3b, #065f46, #0f172a); display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', sans-serif; margin: 0; }
+        .login-card { background: #ffffff; padding: 45px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.25); width: 100%; max-width: 450px; text-align: center; }
+        .login-title { font-weight: 800; color: #065f46; margin-bottom: 5px; font-size: 22px; line-height: 1.4; }
+        .login-subtitle { font-size: 15px; font-weight: 600; color: #047857; margin-bottom: 30px; }
+        .form-control { border-radius: 10px; padding: 12px 15px; border: 1px solid #d1d5db; margin-bottom: 15px; }
+        .form-control:focus { border-color: #047857; box-shadow: 0 0 0 0.15rem rgba(4, 120, 87, 0.25); }
+        .btn-login { background-color: #047857; border: none; padding: 12px; border-radius: 10px; color: white; width: 100%; font-weight: 600; transition: 0.3s ease; }
+        .btn-login:hover { background-color: #065f46; color: white; transform: translateY(-2px); }
+        .btn-outline-custom { background-color: white; border: 1px solid #d1d5db; padding: 12px; border-radius: 10px; color: #374151; width: 100%; margin-top: 12px; font-weight: 600; transition: 0.3s ease; }
+        .btn-outline-custom:hover { background-color: #fef2f2; border-color: #dc2626; color: #dc2626; }
+        .error-message { background-color: #fef2f2; color: #dc2626; padding: 10px; border-radius: 8px; border: 1px solid #fee2e2; font-size: 14px; margin-bottom: 20px; }
+        .brand { position: absolute; top: 30px; left: 40px; color: white; font-weight: 700; font-size: 18px; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+    <div class="brand">A Smart System for Dollar Cost Averaging</div>
+    <div class="login-card">
+        <h4 class="login-title">สร้างบัญชีผู้ใช้ใหม่</h4>
+        <div class="login-subtitle">A Smart System for DCA</div>
+
+        <form method="POST">
+            {% csrf_token %}
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="error-message">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <input type="text" name="username" class="form-control" placeholder="ตั้งชื่อผู้ใช้ (Username)" required autofocus>
+            <input type="password" name="password" class="form-control" placeholder="ตั้งรหัสผ่าน" required>
+            <input type="password" name="confirm_password" class="form-control mb-4" placeholder="ยืนยันรหัสผ่านอีกครั้ง" required>
+
+            <button type="submit" class="btn btn-login">ยืนยันการสมัครสมาชิก</button>
+            <button type="button" onclick="window.location.href='{% url 'login' %}'" class="btn btn-outline-custom">กลับไปหน้าเข้าสู่ระบบ</button>
+        </form>
+    </div>
+</body>
+</html>
