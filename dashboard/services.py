@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 def normalize_selected_stocks(value: str) -> List[str]:
@@ -44,4 +44,42 @@ def build_dca_projection(monthly_investment: Decimal, duration_years: int, targe
         "final_portfolio_value": round(current_value, 2),
         "is_target_reached": is_target_reached,
         "target_message": target_message,
+    }
+
+
+def build_saved_ga_summary(snapshot: Any, selected_assets: List[str], current_return: float, current_sharpe: float) -> Optional[Dict[str, Any]]:
+    """Build a display-safe summary for a saved GA snapshot only when the stock set matches."""
+    if snapshot is None:
+        return None
+
+    weights = snapshot.weights or {}
+    snapshot_stocks = set(weights.keys())
+    selected_stocks = set(selected_assets)
+
+    if snapshot_stocks != selected_stocks:
+        return None
+
+    processed_allocations = []
+    other_pct = 0.0
+    other_count = 0
+
+    sorted_allocations = sorted(weights.items(), key=lambda item: float(item[1]), reverse=True)
+    for stock, pct in sorted_allocations:
+        pct_value = float(pct) * 100
+        if pct_value < 1.0:
+            other_pct += pct_value
+            other_count += 1
+        else:
+            processed_allocations.append({"name": stock, "pct": round(pct_value, 2)})
+
+    if other_count > 0:
+        processed_allocations.append({"name": f"อื่นๆ ({other_count} หุ้น)", "pct": round(other_pct, 2)})
+
+    return {
+        "timestamp": snapshot.saved_at,
+        "allocations": processed_allocations,
+        "expected_return": snapshot.expected_return,
+        "sharpe_ratio": snapshot.sharpe_ratio,
+        "return_diff": round(current_return - (snapshot.expected_return * 100 if snapshot.expected_return is not None else 0), 2),
+        "sharpe_diff": round(current_sharpe - (snapshot.sharpe_ratio or 0), 2),
     }

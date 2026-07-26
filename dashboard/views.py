@@ -6,7 +6,7 @@ from django.http import JsonResponse, FileResponse, HttpResponse
 from django.views.generic import UpdateView
 from django.template.loader import render_to_string
 from .models import Stock, UserPlan, UserProfile, UserInvestmentRecord, DCAPreset, GAResultSnapshot
-from .services import build_dca_projection, normalize_selected_stocks
+from .services import build_dca_projection, build_saved_ga_summary, normalize_selected_stocks
 from .tasks import optimize_portfolio_task
 from .optimizers import EqualWeightOptimizer, GAOptimizer
 
@@ -58,6 +58,16 @@ def dashboard_view(request):
         target_amount=plan.target_amount,
         expected_return=ga_results['expected_return'],
     )
+
+    current_return_percent = ga_results['expected_return'] * 100
+    current_sharpe_ratio = ga_results['sharpe_ratio']
+    latest_snapshot = GAResultSnapshot.objects.filter(user=request.user).order_by('-saved_at').first()
+    saved_ga_summary = build_saved_ga_summary(
+        latest_snapshot,
+        selected_assets,
+        current_return=current_return_percent,
+        current_sharpe=current_sharpe_ratio,
+    )
     chart_labels = projection['chart_labels']
     chart_data = projection['chart_data']
     current_value = projection['final_portfolio_value']
@@ -67,9 +77,9 @@ def dashboard_view(request):
     context = {
         'set50_stocks': all_stocks,
         'selected_assets': selected_assets,
-        'total_return_percent': f"{ga_results['expected_return']*100:.2f}%",
+        'total_return_percent': f"{current_return_percent:.2f}%",
         'baseline_weights': baseline_results,
-        'sharpe_ratio': f"{ga_results['sharpe_ratio']:.2f}",
+        'sharpe_ratio': f"{current_sharpe_ratio:.2f}",
         'weights_display': sorted(weights_display, key=lambda x: x['percent'], reverse=True),
         
         # ข้อมูลฟอร์ม
@@ -87,13 +97,13 @@ def dashboard_view(request):
         'target_message': target_message,
         
         # ข้อมูล GA ที่บันทึกไว้
-        'saved_ga_available': bool(plan.last_optimized_weights),
-        'saved_ga_weights': plan.last_optimized_weights or {},
-        'saved_ga_return': f"{plan.last_expected_return*100:.2f}%" if plan.last_expected_return is not None else None,
-        'saved_ga_sharpe': f"{plan.last_sharpe_ratio:.2f}" if plan.last_sharpe_ratio is not None else None,
-        'saved_ga_time': plan.updated_at if plan.last_optimized_weights else None,
-        'saved_ga_chart_labels': json.dumps(plan.last_chart_labels or []),
-        'saved_ga_chart_data': json.dumps(plan.last_chart_data or []),
+        'saved_ga_available': saved_ga_summary is not None,
+        'saved_ga_summary': saved_ga_summary,
+        'saved_ga_return': f"{saved_ga_summary['expected_return'] * 100:.2f}%" if saved_ga_summary else None,
+        'saved_ga_sharpe': f"{saved_ga_summary['sharpe_ratio']:.2f}" if saved_ga_summary else None,
+        'saved_ga_time': saved_ga_summary['timestamp'] if saved_ga_summary else None,
+        'saved_ga_chart_labels': json.dumps(latest_snapshot.chart_labels or []) if latest_snapshot else '[]',
+        'saved_ga_chart_data': json.dumps(latest_snapshot.chart_data or []) if latest_snapshot else '[]',
     }
     return render(request, 'dashboard/index.html', context)
 

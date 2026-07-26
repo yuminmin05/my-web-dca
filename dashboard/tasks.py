@@ -3,16 +3,28 @@ import logging
 try:
     from celery import shared_task
 except ImportError:  # pragma: no cover - fallback for environments without Celery
+    class _FallbackTask:
+        def __init__(self, func, **kwargs):
+            self.func = func
+            self.__name__ = getattr(func, '__name__', 'task')
+            self.__doc__ = getattr(func, '__doc__', '')
+
+        def __call__(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+        def delay(self, *args, **kwargs):
+            return self(*args, **kwargs)
+
     def shared_task(func=None, **kwargs):
         if func is None:
-            return lambda f: f
-        return func
+            return lambda f: _FallbackTask(f, **kwargs)
+        return _FallbackTask(func, **kwargs)
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, retry_kwargs={"max_retries": 3, "countdown": 5})
-def optimize_portfolio_task(self, user_plan_id):
+@shared_task(retry_kwargs={"max_retries": 3, "countdown": 5})
+def optimize_portfolio_task(user_plan_id):
     """Run the long-running GA optimization asynchronously and save the result as a snapshot."""
     from .ga_optimizer import run_genetic_algorithm as run_ga_optimization
     from .models import GAResultSnapshot, UserPlan
