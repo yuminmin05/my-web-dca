@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประวัติผล GA | DCA Investment System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 min-h-screen font-sans">
+<div class="max-w-6xl mx-auto p-6 md:p-10">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-extrabold text-white">ประวัติผล GA</h1>
+            <p class="text-emerald-200 text-sm mt-1">รายการสรุปผลที่คุณบันทึกไว้</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'dashboard' %}" class="bg-white text-emerald-800 px-6 py-2 rounded-xl font-semibold shadow hover:bg-emerald-50">← กลับ</a>
+        </div>
+    </div>
+
+    {% if snapshots %}
+    <div class="bg-white rounded-2xl shadow-xl p-6 overflow-x-auto">
+        <table class="w-full">
+            <thead class="text-left text-sm text-gray-600">
+                <tr>
+                    <th class="py-3">วันที่</th>
+                    <th class="py-3">ผลตอบแทน (ปี)</th>
+                    <th class="py-3">Sharpe</th>
+                    <th class="py-3">มูลค่าพอร์ตสุดท้าย</th>
+                    <th class="py-3">รายละเอียด</th>
+                </tr>
+            </thead>
+            <tbody class="text-sm text-gray-800">
+                {% for s in snapshots %}
+                <tr class="border-t">
+                    <td class="py-3">{{ s.saved_at|date:"d/m/Y H:i" }}</td>
+                    <td class="py-3">{{ s.expected_return|floatformat:2 }}%</td>
+                    <td class="py-3">{{ s.sharpe_ratio|floatformat:2 }}</td>
+                    <td class="py-3">฿ {{ s.final_portfolio_value }}</td>
+                    <td class="py-3">
+                        <a href="{% url 'ga_history_detail' s.pk %}" class="text-emerald-700 font-semibold">ดูรายละเอียด</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl shadow-xl p-12 text-center">
+        <h2 class="text-xl font-bold text-gray-800">ยังไม่มีบันทึกผล GA</h2>
+        <p class="text-gray-600 mt-3">กดปุ่มบันทึกแผนและผลสรุป GA ในหน้า Dashboard เพื่อบันทึกผล</p>
+    </div>
+    {% endif %}
+
+</div>
+</body>
+</html>

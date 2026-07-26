@@ -1,0 +1,121 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรไฟล์ | DCA Investment System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 min-h-screen font-sans">
+
+<div class="max-w-4xl mx-auto p-6 md:p-10">
+
+    <!-- Navigation Bar -->
+    <div class="flex justify-between items-center mb-10">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-extrabold text-white">โปรไฟล์ของฉัน</h1>
+            <p class="text-emerald-200 text-sm mt-1">จัดการข้อมูลส่วนตัวและตั้งค่า</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="bg-white text-emerald-800 px-6 py-2 rounded-xl font-semibold shadow hover:bg-emerald-50 transition-all">
+            ← กลับไปที่ Dashboard
+        </a>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="mb-6 p-4 rounded-xl bg-{{ message.tags }}-100 border border-{{ message.tags }}-500 text-{{ message.tags }}-800">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Profile Card -->
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-12">
+            <div class="flex items-center space-x-6">
+                <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center text-emerald-600 text-3xl font-bold">
+                    {{ user.username|first|upper }}
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-white">{{ user.first_name|default:user.username }} {{ user.last_name }}</h2>
+                    <p class="text-emerald-100 text-sm">@{{ user.username }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- ข้อมูลพื้นฐาน -->
+                <div>
+                    <label class="block text-gray-600 font-semibold mb-2">ชื่อผู้ใช้</label>
+                    <p class="text-gray-900 text-lg">{{ user.username }}</p>
+                </div>
+                <div>
+                    <label class="block text-gray-600 font-semibold mb-2">อีเมล</label>
+                    <p class="text-gray-900 text-lg">{{ user.email|default:"ไม่ได้ตั้งค่า" }}</p>
+                </div>
+                <div>
+                    <label class="block text-gray-600 font-semibold mb-2">ชื่อ</label>
+                    <p class="text-gray-900 text-lg">{{ user.first_name|default:"ไม่ได้ตั้งค่า" }}</p>
+                </div>
+                <div>
+                    <label class="block text-gray-600 font-semibold mb-2">นามสกุล</label>
+                    <p class="text-gray-900 text-lg">{{ user.last_name|default:"ไม่ได้ตั้งค่า" }}</p>
+                </div>
+                <div>
+                    <label class="block text-gray-600 font-semibold mb-2">เบอร์โทรศัพท์</label>
+                    <p class="text-gray-900 text-lg">{{ profile.phone|default:"ไม่ได้ตั้งค่า" }}</p>
+                </div>
+                <div>
+                    <label class="block text-gray-600 font-semibold mb-2">ภาษาที่ต้องการ</label>
+                    <p class="text-gray-900 text-lg">
+                        {% if profile.preferred_language == 'th' %}ไทย{% else %}English{% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Bio -->
+            {% if profile.bio %}
+            <div class="mb-8 pb-8 border-b">
+                <label class="block text-gray-600 font-semibold mb-2">เกี่ยวกับตัวเอง</label>
+                <p class="text-gray-900">{{ profile.bio }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4">
+                <a href="{% url 'profile_edit' %}" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl transition-all text-center">
+                    ✏️ แก้ไขข้อมูลส่วนตัว
+                </a>
+                <a href="{% url 'password_change' %}" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all text-center">
+                    🔑 เปลี่ยนรหัสผ่าน
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <a href="{% url 'investment_records' %}" class="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="text-3xl mb-3">📊</div>
+            <h3 class="font-semibold text-gray-900 mb-1">บันทึกการลงทุน</h3>
+            <p class="text-gray-600 text-sm">ดูและจัดการบันทึกการลงทุนของคุณ</p>
+        </a>
+        <a href="{% url 'statistics' %}" class="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="text-3xl mb-3">📈</div>
+            <h3 class="font-semibold text-gray-900 mb-1">สถิติการลงทุน</h3>
+            <p class="text-gray-600 text-sm">ดูสัมมนฏฐ์สถิติการลงทุนของคุณ</p>
+        </a>
+        <a href="{% url 'dashboard' %}" class="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="text-3xl mb-3">🎯</div>
+            <h3 class="font-semibold text-gray-900 mb-1">Dashboard</h3>
+            <p class="text-gray-600 text-sm">กลับไปยัง Dashboard หลัก</p>
+        </a>
+    </div>
+
+</div>
+
+</body>
+</html>

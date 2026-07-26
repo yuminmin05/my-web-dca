@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แผน DCA สำเร็จรูป | DCA Investment System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 min-h-screen font-sans">
+
+<div class="max-w-6xl mx-auto p-6 md:p-10">
+
+    <div class="flex justify-between items-center mb-10">
+        <div>
+            <h1 class="text-3xl font-extrabold text-white">แผน DCA สำเร็จรูป</h1>
+            <p class="text-emerald-200 text-sm mt-1">เลือกแผนที่เหมาะสมกับเป้าหมายของคุณ</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="bg-white text-emerald-800 px-6 py-2 rounded-xl font-semibold shadow hover:bg-emerald-50">
+            ← กลับ
+        </a>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="mb-6 p-4 rounded-xl bg-green-100 border border-green-500 text-green-800">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if presets %}
+    <!-- Plans Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for preset in presets %}
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-all transform hover:-translate-y-1">
+            <!-- Header Color by Risk Level -->
+            <div class="h-24 {% if preset.risk_level == 'low' %}bg-gradient-to-r from-blue-500 to-cyan-600{% elif preset.risk_level == 'medium' %}bg-gradient-to-r from-emerald-500 to-teal-600{% else %}bg-gradient-to-r from-orange-500 to-red-600{% endif %} flex items-center justify-center">
+                <div>
+                    <div class="text-white text-center">
+                        <div class="text-sm font-semibold opacity-90">ระดับความเสี่ยง</div>
+                        <div class="text-2xl font-extrabold">
+                            {% if preset.risk_level == 'low' %}🟦 ต่ำ{% elif preset.risk_level == 'medium' %}🟩 ปานกลาง{% else %}🟥 สูง{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-6">
+                <!-- Title -->
+                <h3 class="text-xl font-bold text-gray-800 mb-2">{{ preset.name }}</h3>
+                <p class="text-gray-600 text-sm mb-6">{{ preset.description }}</p>
+
+                <!-- Plan Details -->
+                <div class="space-y-3 mb-6 pb-6 border-b">
+                    <!-- Monthly Investment -->
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">💰 เงินลงทุนรายเดือน</span>
+                        <span class="font-bold text-gray-900">฿ {{ preset.monthly_investment|floatformat:0 }}</span>
+                    </div>
+
+                    <!-- Duration -->
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">⏱️ ระยะเวลา</span>
+                        <span class="font-bold text-gray-900">{{ preset.duration_years }} ปี</span>
+                    </div>
+
+                    <!-- Target Amount -->
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">🎯 เป้าหมาย</span>
+                        <span class="font-bold text-gray-900">฿ {{ preset.target_amount|floatformat:0 }}</span>
+                    </div>
+
+                    <!-- Expected Return -->
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 text-sm">📈 ผลตอบแทนคาดหวัง</span>
+                        <span class="font-bold text-emerald-700">{{ preset.expected_return }}%</span>
+                    </div>
+                </div>
+
+                <!-- Stocks -->
+                <div class="mb-6">
+                    <div class="text-gray-600 text-sm font-semibold mb-2">📊 หุ้นที่ประกอบด้วย</div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for stock in preset.stocks_list %}
+                        <span class="inline-block bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1 rounded-full">
+                            {{ stock }}
+                        </span>
+                        {% empty %}
+                        <span class="inline-block bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">
+                            ไม่ระบุ
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Apply Button -->
+                <a href="{% url 'apply_preset_plan' preset.id %}" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3 rounded-xl transition-all text-center">
+                    ✓ ใช้แผนนี้
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Info Section -->
+    <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- How to Use -->
+        <div class="bg-blue-50 border border-blue-300 rounded-2xl p-6">
+            <h3 class="font-semibold text-blue-900 mb-3 text-lg">💡 วิธีใช้แผน DCA สำเร็จรูป</h3>
+            <ol class="text-blue-800 text-sm space-y-2">
+                <li>1. เลือกแผนที่เหมาะสมกับเป้าหมายของคุณ</li>
+                <li>2. คลิกปุ่ม "✓ ใช้แผนนี้"</li>
+                <li>3. แผนจะถูกนำไปใช้กับ Dashboard ของคุณ</li>
+                <li>4. เริ่มบันทึกการลงทุนตามแผน DCA</li>
+            </ol>
+        </div>
+
+        <!-- Risk Levels -->
+        <div class="bg-emerald-50 border border-emerald-300 rounded-2xl p-6">
+            <h3 class="font-semibold text-emerald-900 mb-3 text-lg">📊 ระดับความเสี่ยง</h3>
+            <ul class="text-emerald-800 text-sm space-y-2">
+                <li><span class="font-bold">🟦 ต่ำ:</span> เหมาะสำหรับผู้ที่หลีกเลี่ยงความเสี่ยง</li>
+                <li><span class="font-bold">🟩 ปานกลาง:</span> สมดุลระหว่างความเสี่ยงและผลตอบแทน</li>
+                <li><span class="font-bold">🟥 สูง:</span> เหมาะสำหรับผู้ที่ยอมรับความเสี่ยงเพื่อผลตอบแทน</li>
+            </ul>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="bg-white rounded-2xl shadow-xl p-12 text-center">
+        <div class="text-6xl mb-4">🎯</div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">ยังไม่มีแผน DCA สำเร็จรูป</h2>
+        <p class="text-gray-600 mb-6">ให้ admin ของระบบสร้างแผนสำเร็จรูปก่อน</p>
+        <a href="{% url 'dashboard' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl font-semibold inline-block transition-all">
+            ← กลับไปที่ Dashboard
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

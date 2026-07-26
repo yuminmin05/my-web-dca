@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายละเอียด GA Snapshot | DCA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 min-h-screen font-sans">
+<div class="max-w-6xl mx-auto p-6 md:p-10">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white">รายละเอียดผล GA</h1>
+            <p class="text-emerald-200 text-sm mt-1">บันทึกเมื่อ {{ snapshot.saved_at|date:"d/m/Y H:i" }}</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'ga_history' %}" class="bg-white text-emerald-800 px-6 py-2 rounded-xl font-semibold shadow hover:bg-emerald-50">← กลับ</a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white rounded-2xl p-6 shadow">
+            <h3 class="text-sm text-gray-500">ผลตอบแทนคาดหวัง</h3>
+            <div class="text-2xl font-bold text-emerald-700 mt-2">{{ snapshot.expected_return|floatformat:2 }}%</div>
+            <h3 class="text-sm text-gray-500 mt-4">Sharpe Ratio</h3>
+            <div class="text-xl font-bold mt-2">{{ snapshot.sharpe_ratio|floatformat:2 }}</div>
+        </div>
+        <div class="md:col-span-2 bg-white rounded-2xl p-6 shadow">
+            <h3 class="text-sm text-gray-500">มูลค่าพอร์ต (สุดท้าย)</h3>
+            <div class="text-2xl font-bold text-emerald-700 mt-2">฿ {{ snapshot.final_portfolio_value }}</div>
+            <div class="mt-4">
+                <canvas id="snapshotChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow">
+        <h3 class="text-sm text-gray-500 mb-3">สัดส่วนน้ำหนักหุ้น</h3>
+        <div class="space-y-3">
+            {% for w in weights %}
+            <div class="flex justify-between items-center">
+                <div class="text-sm font-medium">{{ w.symbol }}</div>
+                <div class="text-sm font-bold">{{ w.percent|floatformat:1 }}%</div>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2">
+                <div class="bg-emerald-700 h-2 rounded-full" style="width: {{ w.percent }}%"></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const labels = {{ chart_labels|safe }};
+    const data = {{ chart_data|safe }};
+
+    if (document.getElementById('snapshotChart')) {
+        const ctx = document.getElementById('snapshotChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'มูลค่าพอร์ต',
+                    data: data,
+                    borderColor: '#047857',
+                    backgroundColor: 'rgba(16,185,129,0.15)',
+                    fill: true,
+                    tension: 0.3,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { x: { grid: { display: false } } }
+            }
+        });
+    }
+</script>
+</body>
+</html>
