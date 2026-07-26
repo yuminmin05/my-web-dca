@@ -204,10 +204,10 @@ class StockAdmin(admin.ModelAdmin):
 
 @admin.register(UserPlan)
 class UserPlanAdmin(admin.ModelAdmin):
-    list_display = ('user', 'monthly_investment', 'duration_years', 'target_amount', 'last_optimized_at')
-    search_fields = ('user__username',) 
-    list_filter = ('duration_years',)
-    readonly_fields = ('created_at', 'updated_at')
+    list_display = ('user', 'monthly_investment', 'duration_years', 'target_amount', 'last_optimized_at', 'last_expected_return_display', 'last_sharpe_ratio_display')
+    search_fields = ('user__username', 'user__first_name', 'user__last_name') 
+    list_filter = ('duration_years', 'created_at')
+    readonly_fields = ('created_at', 'updated_at', 'ga_summary')
     fieldsets = (
         ('ข้อมูลผู้ใช้', {
             'fields': ('user',),
@@ -216,7 +216,11 @@ class UserPlanAdmin(admin.ModelAdmin):
             'fields': ('monthly_investment', 'duration_years', 'target_amount', 'selected_stocks'),
         }),
         ('ผลลัพธ์ GA ล่าสุด', {
-            'fields': ('last_expected_return', 'last_sharpe_ratio', 'last_optimized_weights'),
+            'fields': ('ga_summary', 'last_expected_return', 'last_sharpe_ratio', 'last_optimized_weights'),
+        }),
+        ('ข้อมูลกราฟ (JSON)', {
+            'fields': ('last_chart_labels', 'last_chart_data'),
+            'classes': ('collapse',),
         }),
         ('วันที่', {
             'fields': ('created_at', 'updated_at'),
@@ -227,13 +231,71 @@ class UserPlanAdmin(admin.ModelAdmin):
     def last_optimized_at(self, obj):
         return obj.updated_at.strftime('%d/%m/%Y %H:%M') if obj.updated_at else 'ยังไม่ได้'
     last_optimized_at.short_description = 'อัปเดตล่าสุด'
+    
+    def last_expected_return_display(self, obj):
+        if obj.last_expected_return is not None:
+            return format_html('<span style="color: #27ae60; font-weight: bold;">{:.2f}%</span>', obj.last_expected_return * 100)
+        return '—'
+    last_expected_return_display.short_description = 'ผลตอบแทน (%)'
+    
+    def last_sharpe_ratio_display(self, obj):
+        if obj.last_sharpe_ratio is not None:
+            return format_html('<span style="color: #2980b9; font-weight: bold;">{:.2f}</span>', obj.last_sharpe_ratio)
+        return '—'
+    last_sharpe_ratio_display.short_description = 'Sharpe Ratio'
+    
+    def ga_summary(self, obj):
+        if obj.last_expected_return is None or obj.last_sharpe_ratio is None:
+            return format_html('<em style="color: #95a5a6;">ยังไม่ได้คำนวณ</em>')
+        return format_html(
+            '<div style="background-color: #ecf0f1; padding: 10px; border-radius: 5px; font-family: monospace;">'
+            '<strong>ผลตอบแทนคาดหวัง:</strong> {:.2f}%<br>'
+            '<strong>Sharpe Ratio:</strong> {:.2f}<br>'
+            '<strong>หุ้นที่เลือก:</strong> {}'
+            '</div>',
+            obj.last_expected_return * 100,
+            obj.last_sharpe_ratio,
+            obj.selected_stocks
+        )
+    ga_summary.short_description = 'สรุปผลลัพธ์ GA (อ่านอย่างเดียว)'
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'phone', 'preferred_language', 'created_at')
-    search_fields = ('user__username', 'user__email')
-    list_filter = ('preferred_language',)
-    readonly_fields = ('created_at', 'updated_at')
+    list_display = ('user', 'display_user_name', 'phone', 'preferred_language', 'created_at')
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone')
+    list_filter = ('preferred_language', 'created_at')
+    readonly_fields = ('created_at', 'updated_at', 'user_info')
+    fieldsets = (
+        ('ข้อมูลผู้ใช้', {
+            'fields': ('user', 'user_info'),
+        }),
+        ('ข้อมูลส่วนตัว', {
+            'fields': ('phone', 'preferred_language', 'bio'),
+        }),
+        ('วันที่', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+    
+    def display_user_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}" if obj.user.first_name or obj.user.last_name else obj.user.username
+    display_user_name.short_description = 'ชื่อ-นามสกุล'
+    
+    def user_info(self, obj):
+        return format_html(
+            '<div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">'
+            '<strong>Username:</strong> {}<br>'
+            '<strong>Email:</strong> {}<br>'
+            '<strong>ชื่อ:</strong> {}<br>'
+            '<strong>นามสกุล:</strong> {}'
+            '</div>',
+            obj.user.username,
+            obj.user.email or 'ไม่ได้ตั้งค่า',
+            obj.user.first_name or '-',
+            obj.user.last_name or '-'
+        )
+    user_info.short_description = 'ข้อมูลผู้ใช้ (อ่านอย่างเดียว)'
 
 @admin.register(DCAPreset)
 class DCAPresetAdmin(admin.ModelAdmin):
