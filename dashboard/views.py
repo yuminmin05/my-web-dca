@@ -180,22 +180,40 @@ def start_optimization(request, plan_id):
 
 def register_view(request):
     if request.method == 'POST':
-        u = request.POST.get('username')
-        p1 = request.POST.get('password')
-        p2 = request.POST.get('confirm_password')
+        u = request.POST.get('username', '').strip()
+        p1 = request.POST.get('password', '').strip()
+        p2 = request.POST.get('confirm_password', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        preferred_language = request.POST.get('preferred_language', 'th')
         
+        # ตรวจสอบว่ากรอกข้อมูลครบครัน
+        if not all([u, p1, p2, first_name, last_name, phone, preferred_language]):
+            messages.error(request, 'กรุณากรอกข้อมูลให้ครบถ้วน')
         # ตรวจสอบว่ากรอกรหัสผ่านตรงกันไหม
-        if p1 != p2:
+        elif p1 != p2:
             messages.error(request, 'รหัสผ่านทั้งสองช่องไม่ตรงกัน กรุณาลองใหม่')
         # ตรวจสอบว่าชื่อผู้ใช้นี้ซ้ำกับในระบบไหม
         elif User.objects.filter(username=u).exists():
             messages.error(request, 'ชื่อผู้ใช้นี้มีในระบบแล้ว กรุณาใช้ชื่ออื่น')
         else:
             # สร้าง User ใหม่
-            user = User.objects.create_user(username=u, password=p1)
+            user = User.objects.create_user(
+                username=u, 
+                password=p1, 
+                first_name=first_name,
+                last_name=last_name
+            )
             # สร้างแผนการลงทุนเปล่าๆ ให้ User คนนี้ทันที
-            from .models import UserPlan
+            from .models import UserPlan, UserProfile
             UserPlan.objects.create(user=user)
+            # สร้าง UserProfile พร้อมเบอร์โทรและภาษา
+            UserProfile.objects.create(
+                user=user,
+                phone=phone,
+                preferred_language=preferred_language
+            )
             # พยายาม authenticate แล้วล็อกอินอัตโนมัติ
             auth_user = authenticate(username=u, password=p1)
             if auth_user is not None:

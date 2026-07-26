@@ -36,6 +36,20 @@
             {% endif %}
 
             <input type="text" name="username" class="form-control" placeholder="ตั้งชื่อผู้ใช้ (Username)" required autofocus>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <input type="text" name="first_name" class="form-control" placeholder="ชื่อ" required>
+                <input type="text" name="last_name" class="form-control" placeholder="นามสกุล" required>
+            </div>
+
+            <input type="tel" name="phone" class="form-control" placeholder="เบอร์โทรศัพท์" required>
+
+            <select name="preferred_language" class="form-control" required>
+                <option value="">-- เลือกภาษาที่ต้องการ --</option>
+                <option value="th">ไทย</option>
+                <option value="en">English</option>
+            </select>
+
             <input type="password" name="password" class="form-control" placeholder="ตั้งรหัสผ่าน" required>
             <input type="password" name="confirm_password" class="form-control mb-4" placeholder="ยืนยันรหัสผ่านอีกครั้ง" required>
 
