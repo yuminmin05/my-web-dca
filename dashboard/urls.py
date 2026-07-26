@@ -51,6 +51,11 @@ urlpatterns = [
         login_required(views.update_investment),
         name='update_investment'
     ),
+    path(
+        'start-optimization/<int:plan_id>/',
+        login_required(views.start_optimization),
+        name='start_optimization'
+    ),
 
     # =========================
     # Profile Management
@@ -145,5 +150,10 @@ urlpatterns = [
         'export/plan-pdf/',
         login_required(views.export_plan_pdf_view),
         name='export_plan_pdf'
+    ),
+    path(
+        'plans/<int:plan_id>/pdf/',
+        login_required(views.download_plan_pdf),
+        name='download_plan_pdf'
     ),
 ]

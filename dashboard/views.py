@@ -1,12 +1,19 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordChangeView
 from django.urls import reverse_lazy
-from django.http import JsonResponse, FileResponse
+from django.http import JsonResponse, FileResponse, HttpResponse
 from django.views.generic import UpdateView
+from django.template.loader import render_to_string
 from .models import Stock, UserPlan, UserProfile, UserInvestmentRecord, DCAPreset, GAResultSnapshot
-from .ga_optimizer import run_genetic_algorithm
 from .services import build_dca_projection, normalize_selected_stocks
+from .tasks import optimize_portfolio_task
+from .optimizers import EqualWeightOptimizer, GAOptimizer
+
+try:
+    from weasyprint import HTML
+except Exception:
+    HTML = None
 from django.contrib.auth.models import User
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib import messages
@@ -34,8 +41,11 @@ def dashboard_view(request):
     else:
         selected_assets = normalize_selected_stocks(plan.selected_stocks)
 
-    # 1. รัน GA เพื่อหาน้ำหนักที่เหมาะสม
-    ga_results = run_genetic_algorithm(assets=selected_assets)
+    ga_optimizer = GAOptimizer()
+    equal_weight_optimizer = EqualWeightOptimizer()
+
+    ga_results = ga_optimizer.optimize([type('StockRef', (), {'symbol': s})() for s in selected_assets], plan.target_amount)
+    baseline_results = equal_weight_optimizer.optimize([type('StockRef', (), {'symbol': s})() for s in selected_assets], plan.target_amount)
     
     # 2. จัดรูปแบบสัดส่วนน้ำหนักสำหรับแสดงผล
     weights_display = []
@@ -58,6 +68,7 @@ def dashboard_view(request):
         'set50_stocks': all_stocks,
         'selected_assets': selected_assets,
         'total_return_percent': f"{ga_results['expected_return']*100:.2f}%",
+        'baseline_weights': baseline_results,
         'sharpe_ratio': f"{ga_results['sharpe_ratio']:.2f}",
         'weights_display': sorted(weights_display, key=lambda x: x['percent'], reverse=True),
         
@@ -107,38 +118,26 @@ def update_investment(request):
                 raise InvalidOperation('Values must be positive')
 
             plan.save()
-            selected_assets = normalize_selected_stocks(plan.selected_stocks)
-            ga_results = run_genetic_algorithm(assets=selected_assets)
-            plan.last_optimized_weights = ga_results['weights']
-            plan.last_expected_return = ga_results['expected_return']
-            plan.last_sharpe_ratio = ga_results['sharpe_ratio']
-
-            projection = build_dca_projection(
-                monthly_investment=plan.monthly_investment,
-                duration_years=plan.duration_years,
-                target_amount=plan.target_amount,
-                expected_return=ga_results['expected_return'],
-            )
-            plan.last_chart_labels = projection['chart_labels']
-            plan.last_chart_data = projection['chart_data']
-            plan.save()
-
-            GAResultSnapshot.objects.create(
-                user=request.user,
-                expected_return=ga_results.get('expected_return'),
-                sharpe_ratio=ga_results.get('sharpe_ratio'),
-                weights=ga_results.get('weights'),
-                chart_labels=projection['chart_labels'],
-                chart_data=projection['chart_data'],
-                final_portfolio_value=projection['final_portfolio_value'],
-                monthly_investment=plan.monthly_investment,
-                duration_years=plan.duration_years,
-                target_amount=plan.target_amount,
-            )
-            messages.success(request, 'บันทึกแผนและผลสรุป GA เรียบร้อยแล้ว')
+            task = optimize_portfolio_task.delay(plan.id)
+            messages.success(request, 'กำลังประมวลผล GA ในพื้นหลัง กรุณารอซักครู่')
+            return redirect('dashboard')
         except (InvalidOperation, ValueError) as e:
             messages.error(request, 'ข้อมูลที่ป้อนไม่ถูกต้อง กรุณาตรวจสอบแล้วส่งใหม่')
     return redirect('dashboard')
+
+
+@login_required
+def start_optimization(request, plan_id):
+    """Dispatch GA optimization to a background task and return immediately."""
+    try:
+        plan = UserPlan.objects.get(id=plan_id, user=request.user)
+    except UserPlan.DoesNotExist:
+        return JsonResponse({'error': 'Plan not found'}, status=404)
+
+    task = optimize_portfolio_task.delay(plan.id)
+    return JsonResponse({'task_id': task.id, 'status': 'Processing'})
+
+
 def register_view(request):
     if request.method == 'POST':
         u = request.POST.get('username')
@@ -313,11 +312,7 @@ def ga_history_view(request):
 @login_required
 def ga_history_detail_view(request, pk):
     """แสดงรายละเอียด snapshot เดียว (กราฟ + น้ำหนักหุ้น)"""
-    try:
-        snapshot = GAResultSnapshot.objects.get(pk=pk, user=request.user)
-    except GAResultSnapshot.DoesNotExist:
-        messages.error(request, 'ไม่พบข้อมูลผล GA ที่ร้องขอ')
-        return redirect('ga_history')
+    snapshot = get_object_or_404(GAResultSnapshot, pk=pk, user=request.user)
 
     # prepare chart data
     chart_labels = snapshot.chart_labels or []
@@ -340,6 +335,22 @@ def ga_history_detail_view(request, pk):
         'weights': weights,
     }
     return render(request, 'dashboard/ga_snapshot_detail.html', context)
+
+
+@login_required
+def download_plan_pdf(request, plan_id):
+    plan = get_object_or_404(UserPlan, id=plan_id, user=request.user)
+    html_string = render_to_string('dashboard/pdf_template.html', {'plan': plan})
+
+    if HTML is None:
+        response = HttpResponse(html_string, content_type='text/html')
+        response['Content-Disposition'] = f'attachment; filename="dca_plan_{plan.id}.html"'
+        return response
+
+    pdf_file = HTML(string=html_string).write_pdf()
+    response = HttpResponse(pdf_file, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="dca_plan_{plan.id}.pdf"'
+    return response
 
 # ==========================================
 # ฟีเจอร์ใหม่: สถิติการลงทุน

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DCA Plan PDF</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 24px; }
+        h1 { color: #047857; }
+        .section { margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <h1>DCA Investment Plan</h1>
+    <div class="section">
+        <p><strong>User:</strong> {{ plan.user.username }}</p>
+        <p><strong>Monthly Investment:</strong> {{ plan.monthly_investment }}</p>
+        <p><strong>Duration (Years):</strong> {{ plan.duration_years }}</p>
+        <p><strong>Target Amount:</strong> {{ plan.target_amount }}</p>
+        <p><strong>Selected Stocks:</strong> {{ plan.selected_stocks }}</p>
+    </div>
+</body>
+</html>
