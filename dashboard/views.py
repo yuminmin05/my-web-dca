@@ -9,6 +9,7 @@ from .models import Stock, UserPlan, UserProfile, UserInvestmentRecord, DCAPrese
 from .services import build_dca_projection, build_saved_ga_summary, normalize_selected_stocks
 from .tasks import optimize_portfolio_task
 from .optimizers import EqualWeightOptimizer, GAOptimizer
+from .ga_optimizer import run_genetic_algorithm
 
 try:
     from weasyprint import HTML
@@ -338,11 +339,32 @@ def ga_history_detail_view(request, pk):
                 pct = v
             weights.append({'symbol': sym, 'percent': pct})
 
+    selected_assets = [symbol.strip() for symbol in (snapshot.weights or {}).keys() if symbol.strip()]
+    if selected_assets:
+        eq_weights = EqualWeightOptimizer().optimize(
+            [type('StockRef', (), {'symbol': s})() for s in selected_assets],
+            snapshot.target_amount or Decimal('1000000')
+        )
+        eq_return = round(float(snapshot.expected_return or 0) * 100, 2) if snapshot.expected_return is not None else 0.0
+        ga_return = round(float(snapshot.expected_return or 0) * 100, 2) if snapshot.expected_return is not None else 0.0
+        ga_risk = round(float(snapshot.sharpe_ratio or 0) * 100, 2) if snapshot.sharpe_ratio is not None else 0.0
+        eq_risk = round(float(snapshot.sharpe_ratio or 0) * 100, 2) if snapshot.sharpe_ratio is not None else 0.0
+    else:
+        eq_weights = {}
+        ga_return = 0.0
+        eq_return = 0.0
+        ga_risk = 0.0
+        eq_risk = 0.0
+
     context = {
         'snapshot': snapshot,
         'chart_labels': json.dumps(chart_labels),
         'chart_data': json.dumps(chart_data),
         'weights': weights,
+        'ga_return': ga_return,
+        'eq_return': eq_return,
+        'ga_risk': ga_risk,
+        'eq_risk': eq_risk,
     }
     return render(request, 'dashboard/ga_snapshot_detail.html', context)
 

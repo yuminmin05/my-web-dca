@@ -35,7 +35,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl p-6 shadow">
+    <div class="bg-white rounded-2xl p-6 shadow mb-6">
         <h3 class="text-sm text-gray-500 mb-3">สัดส่วนน้ำหนักหุ้น</h3>
         <div class="space-y-3">
             {% for w in weights %}
@@ -47,6 +47,36 @@
                 <div class="bg-emerald-700 h-2 rounded-full" style="width: {{ w.percent }}%"></div>
             </div>
             {% endfor %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow mb-6">
+        <h3 class="text-sm text-gray-500 mb-3">เปรียบเทียบประสิทธิภาพ (GA vs Equal Weight)</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+                <thead class="bg-emerald-700 text-white">
+                    <tr>
+                        <th class="px-4 py-3 text-left">ตัวชี้วัด</th>
+                        <th class="px-4 py-3 text-center">GA</th>
+                        <th class="px-4 py-3 text-center">Equal Weight</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="border-b">
+                        <td class="px-4 py-3">ผลตอบแทนที่คาดหวัง</td>
+                        <td class="px-4 py-3 text-center font-semibold text-emerald-700">{{ ga_return }}%</td>
+                        <td class="px-4 py-3 text-center">{{ eq_return }}%</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">ความเสี่ยง / Volatility</td>
+                        <td class="px-4 py-3 text-center font-semibold text-emerald-700">{{ ga_risk }}%</td>
+                        <td class="px-4 py-3 text-center">{{ eq_risk }}%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-6">
+            <canvas id="comparisonChart" height="120"></canvas>
         </div>
     </div>
 
@@ -75,6 +105,36 @@
                 responsive: true,
                 plugins: { legend: { display: false } },
                 scales: { x: { grid: { display: false } } }
+            }
+        });
+    }
+
+    if (document.getElementById('comparisonChart')) {
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        new Chart(comparisonCtx, {
+            type: 'bar',
+            data: {
+                labels: ['ผลตอบแทน', 'ความเสี่ยง'],
+                datasets: [
+                    {
+                        label: 'GA',
+                        data: [{{ ga_return }}, {{ ga_risk }}],
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: '#047857',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Equal Weight',
+                        data: [{{ eq_return }}, {{ eq_risk }}],
+                        backgroundColor: 'rgba(59, 130, 246, 0.65)',
+                        borderColor: '#2563eb',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
             }
         });
     }
