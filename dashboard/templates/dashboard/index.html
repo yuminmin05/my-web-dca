@@ -49,7 +49,53 @@
     </div>
 
     <div id="printable-area" class="p-2 -mx-2 rounded-2xl">
-        
+
+        <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 mb-8 html2pdf__page-break-avoid">
+            <h2 class="font-bold text-gray-800 text-lg mb-6">
+                ตั้งค่าเป้าหมายและเงินลงทุน
+            </h2>
+
+            <form method="POST" action="{% url 'update_investment' %}"
+                  class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {% csrf_token %}
+
+                <div>
+                    <label class="text-xs text-gray-500">
+                        เงินลงทุนต่อเดือน (บาท)
+                    </label>
+                    <input type="number" name="monthly_investment_input"
+                           value="{{ monthly_investment_raw|floatformat:0 }}"
+                           class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
+                </div>
+
+                <div>
+                    <label class="text-xs text-gray-500">
+                        ระยะเวลาลงทุน (ปี)
+                    </label>
+                    <input type="number" name="duration_years_input"
+                           value="{{ duration_years }}"
+                           class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
+                </div>
+
+                <div>
+                    <label class="text-xs text-gray-500">
+                        เป้าหมายทางการเงิน (บาท)
+                    </label>
+                    <input type="number" name="target_amount_input"
+                           value="{{ target_amount_raw|floatformat:0 }}"
+                           class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
+                </div>
+
+                <div class="flex items-end">
+                    <button id="btn-save" type="submit"
+                        class="w-full bg-emerald-900 hover:bg-emerald-800 text-white px-4 py-3 rounded-xl font-bold shadow-lg transition">
+                        บันทึกแผนและผลสรุป GA
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2 md:col-span-4">กดปุ่มนี้เพื่อบันทึกแผนลงทุน คำนวณกราฟ และบันทึกผลสรุป GA ล่าสุด</p>
+            </form>
+        </div>
+
         <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 mb-8 html2pdf__page-break-avoid">
             <h2 class="font-bold text-xl text-gray-800 mb-6">
                 เลือกหุ้น SET50 สำหรับการลงทุนแบบ DCA
@@ -173,51 +219,6 @@
                 <canvas id="myChart" height="120"></canvas>
             </div>
 
-            <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 md:col-span-3 html2pdf__page-break-avoid">
-                <h2 class="font-bold text-gray-800 text-lg mb-6">
-                    ตั้งค่าเป้าหมายและเงินลงทุน
-                </h2>
-
-                <form method="POST" action="{% url 'update_investment' %}"
-                      class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {% csrf_token %}
-
-                    <div>
-                        <label class="text-xs text-gray-500">
-                            เงินลงทุนต่อเดือน (บาท)
-                        </label>
-                        <input type="number" name="monthly_investment_input"
-                               value="{{ monthly_investment_raw|floatformat:0 }}"
-                               class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
-                    </div>
-
-                    <div>
-                        <label class="text-xs text-gray-500">
-                            ระยะเวลาลงทุน (ปี)
-                        </label>
-                        <input type="number" name="duration_years_input"
-                               value="{{ duration_years }}"
-                               class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
-                    </div>
-
-                    <div>
-                        <label class="text-xs text-gray-500">
-                            เป้าหมายทางการเงิน (บาท)
-                        </label>
-                        <input type="number" name="target_amount_input"
-                               value="{{ target_amount_raw|floatformat:0 }}"
-                               class="border-2 w-full p-3 rounded-xl focus:border-emerald-700 outline-none font-bold mt-1 bg-gray-50">
-                    </div>
-
-                    <div class="flex items-end">
-                        <button id="btn-save" type="submit"
-                            class="w-full bg-emerald-900 hover:bg-emerald-800 text-white px-4 py-3 rounded-xl font-bold shadow-lg transition">
-                            บันทึกแผนและผลสรุป GA
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-2">กดปุ่มนี้เพื่อบันทึกแผนลงทุน คำนวณกราฟ และบันทึกผลสรุป GA ล่าสุด</p>
-                </form>
-            </div>
 
         </div>
     </div>
