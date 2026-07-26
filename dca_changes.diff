@@ -1,0 +1,353 @@
+diff --git a/dashboard/optimizers/__init__.py b/dashboard/optimizers/__init__.py
+index ebbb72f..ac45e3c 100644
+--- a/dashboard/optimizers/__init__.py
++++ b/dashboard/optimizers/__init__.py
+@@ -1,5 +1,6 @@
+ from .base import BaseOptimizer
+ from .equal_weight import EqualWeightOptimizer
+ from .ga import GAOptimizer
++from .mean_variance import MeanVarianceOptimizer
+ 
+-__all__ = ['BaseOptimizer', 'EqualWeightOptimizer', 'GAOptimizer']
++__all__ = ['BaseOptimizer', 'EqualWeightOptimizer', 'GAOptimizer', 'MeanVarianceOptimizer']
+diff --git a/dashboard/optimizers/equal_weight.py b/dashboard/optimizers/equal_weight.py
+index 43a018b..64555e2 100644
+--- a/dashboard/optimizers/equal_weight.py
++++ b/dashboard/optimizers/equal_weight.py
+@@ -1,12 +1,68 @@
++import logging
++
++import numpy as np
++import pandas as pd
++import yfinance as yf
++
+ from .base import BaseOptimizer
+ 
++logger = logging.getLogger(__name__)
++
+ 
+ class EqualWeightOptimizer(BaseOptimizer):
+-    """Simple baseline optimizer that distributes weight evenly across stocks."""
++    """Baseline optimizer that distributes weight evenly across stocks (1/N).
++
++    ใช้เป็นโมเดล baseline อย่างง่ายที่สุดเพื่อเปรียบเทียบกับ GA และ Mean-Variance
++    ตามขอบเขตโครงงานข้อ 1.4.3.4
++    """
++
++    RISK_FREE_RATE = 0.02  # สมมติฐานดอกเบี้ยไร้ความเสี่ยง เท่ากับที่ใช้ในโมเดลอื่น
++
++    def optimize(self, stocks, target_amount=None):
++        assets = [stock.symbol if hasattr(stock, 'symbol') else str(stock) for stock in stocks]
++        if not assets:
++            return {'expected_return': 0.0, 'sharpe_ratio': 0.0, 'weights': {}}
++
++        equal_weights = {symbol: 1.0 / len(assets) for symbol in assets}
++
++        try:
++            tickers = [f"{s}.BK" for s in assets]
++            data = yf.download(tickers, period="3y", progress=False)['Close']
++
++            if data.empty:
++                raise ValueError("ไม่สามารถดึงข้อมูลจาก Yahoo Finance ได้เลย")
++
++            if isinstance(data, pd.DataFrame):
++                valid_assets = [str(col).replace('.BK', '') for col in data.columns]
++                data = data.ffill().dropna()
++            else:
++                valid_assets = assets
++                data = data.dropna()
++
++            returns = data.pct_change().dropna()
++            num_assets = len(valid_assets)
++
++            if num_assets == 1:
++                ret = float(returns.mean() * 252)
++                vol = float(returns.std() * np.sqrt(252))
++                sharpe = (ret - self.RISK_FREE_RATE) / vol if vol > 0 else 0.0
++                return {'expected_return': ret, 'sharpe_ratio': sharpe, 'weights': {valid_assets[0]: 1.0}}
++
++            mean_returns = returns.mean().values * 252
++            cov_matrix = returns.cov().values * 252
++            weights = np.ones(num_assets) / num_assets
++
++            port_return = float(np.sum(mean_returns * weights))
++            port_vol = float(np.sqrt(weights.T @ cov_matrix @ weights))
++            port_sharpe = (port_return - self.RISK_FREE_RATE) / port_vol if port_vol > 0 else 0.0
+ 
+-    def optimize(self, stocks, target_amount):
+-        if not stocks:
+-            return {}
++            weight_dict = {valid_assets[i]: float(weights[i]) for i in range(num_assets)}
+ 
+-        weight_per_stock = 1.0 / len(stocks)
+-        return {stock.symbol if hasattr(stock, 'symbol') else str(stock): weight_per_stock for stock in stocks}
++            return {
++                'expected_return': port_return,
++                'sharpe_ratio': port_sharpe,
++                'weights': weight_dict,
++            }
++        except Exception:
++            logger.exception("Equal-weight optimizer failed to fetch metrics; returning weights only")
++            return {'expected_return': 0.0, 'sharpe_ratio': 0.0, 'weights': equal_weights}
+diff --git a/dashboard/optimizers/mean_variance.py b/dashboard/optimizers/mean_variance.py
+new file mode 100644
+index 0000000..aebd6f0
+--- /dev/null
++++ b/dashboard/optimizers/mean_variance.py
+@@ -0,0 +1,92 @@
++import logging
++
++import numpy as np
++import pandas as pd
++import yfinance as yf
++
++from .base import BaseOptimizer
++
++logger = logging.getLogger(__name__)
++
++
++class MeanVarianceOptimizer(BaseOptimizer):
++    """Classic Markowitz mean-variance (max-Sharpe / tangency portfolio) optimizer.
++
++    ใช้เป็นโมเดลเปรียบเทียบกับ GA ตามขอบเขตโครงงานข้อ 1.4.3.4
++    (เปรียบเทียบผลลัพธ์การทำงานของ GA กับโมเดล optimization อื่นๆ)
++
++    หาน้ำหนักพอร์ตแบบปิด (closed-form) จากสูตร tangency portfolio:
++        w ∝ Σ⁻¹ (μ - rf)
++    แล้วบังคับ long-only (ตัดน้ำหนักติดลบทิ้งแล้ว normalize ใหม่ให้รวมเป็น 1)
++    เพราะพอร์ต DCA ของโปรเจกต์นี้ไม่รองรับการ short หุ้น
++    """
++
++    RISK_FREE_RATE = 0.02  # สมมติฐานดอกเบี้ยไร้ความเสี่ยง เท่ากับที่ใช้ใน GA
++
++    def optimize(self, stocks, target_amount=None):
++        assets = [stock.symbol if hasattr(stock, 'symbol') else str(stock) for stock in stocks]
++        if not assets:
++            return {'expected_return': 0.0, 'sharpe_ratio': 0.0, 'weights': {}}
++
++        try:
++            tickers = [f"{s}.BK" for s in assets]
++            data = yf.download(tickers, period="3y", progress=False)['Close']
++
++            if data.empty:
++                raise ValueError("ไม่สามารถดึงข้อมูลจาก Yahoo Finance ได้เลย")
++
++            if isinstance(data, pd.DataFrame):
++                valid_assets = [str(col).replace('.BK', '') for col in data.columns]
++                data = data.ffill().dropna()
++            else:
++                valid_assets = assets
++                data = data.dropna()
++
++            returns = data.pct_change().dropna()
++            num_assets = len(valid_assets)
++
++            # หุ้นตัวเดียว ไม่ต้อง optimize สัดส่วน
++            if num_assets == 1:
++                ret = float(returns.mean() * 252)
++                vol = float(returns.std() * np.sqrt(252))
++                sharpe = (ret - self.RISK_FREE_RATE) / vol if vol > 0 else 0.0
++                return {
++                    'expected_return': ret,
++                    'sharpe_ratio': sharpe,
++                    'weights': {valid_assets[0]: 1.0},
++                }
++
++            mean_returns = returns.mean().values * 252
++            cov_matrix = returns.cov().values * 252
++            excess_returns = mean_returns - self.RISK_FREE_RATE
++
++            try:
++                inv_cov = np.linalg.inv(cov_matrix)
++            except np.linalg.LinAlgError:
++                # กรณี covariance matrix ไม่สามารถหาผกผันตรงๆ ได้ (เช่นข้อมูลชนกัน)
++                inv_cov = np.linalg.pinv(cov_matrix)
++
++            raw_weights = inv_cov @ excess_returns
++
++            # บังคับ long-only: ตัดน้ำหนักติดลบทิ้ง แล้ว normalize ใหม่ให้รวมเป็น 100%
++            raw_weights = np.clip(raw_weights, 0, None)
++            if raw_weights.sum() <= 0:
++                # ถ้าทุกตัวติดลบหมด (ไม่มี asset ไหนน่าลงทุนตามสูตร) ให้ fallback เป็นน้ำหนักเท่ากัน
++                raw_weights = np.ones(num_assets)
++            weights = raw_weights / raw_weights.sum()
++
++            port_return = float(np.sum(mean_returns * weights))
++            port_vol = float(np.sqrt(weights.T @ cov_matrix @ weights))
++            port_sharpe = (port_return - self.RISK_FREE_RATE) / port_vol if port_vol > 0 else 0.0
++
++            weight_dict = {valid_assets[i]: float(weights[i]) for i in range(num_assets)}
++
++            return {
++                'expected_return': port_return,
++                'sharpe_ratio': port_sharpe,
++                'weights': weight_dict,
++            }
++        except Exception:
++            logger.exception("Mean-Variance optimizer failed")
++            equal_w = {s: 1.0 / len(assets) for s in assets} if assets else {}
++            return {'expected_return': 0.0, 'sharpe_ratio': 0.0, 'weights': equal_w}
+diff --git a/dashboard/templates/dashboard/index.html b/dashboard/templates/dashboard/index.html
+index 4710a0a..116ed38 100644
+--- a/dashboard/templates/dashboard/index.html
++++ b/dashboard/templates/dashboard/index.html
+@@ -222,6 +222,48 @@
+                 <canvas id="myChart" height="120"></canvas>
+             </div>
+ 
++            <div class="md:col-span-3 bg-white p-8 rounded-2xl shadow-xl border border-gray-100 html2pdf__page-break-avoid">
++                <h2 class="font-bold text-xl text-gray-800 mb-2">
++                    เปรียบเทียบผลลัพธ์โมเดล Optimization
++                </h2>
++                <p class="text-sm text-gray-500 mb-6">
++                    เปรียบเทียบ Genetic Algorithm (GA) กับโมเดล optimization อื่นๆ โดยใช้ข้อมูลราคาย้อนหลังชุดเดียวกัน
++                </p>
++
++                <div class="overflow-x-auto">
++                    <table class="w-full text-sm text-left">
++                        <thead>
++                            <tr class="border-b-2 border-gray-100 text-gray-500">
++                                <th class="py-3 pr-4 font-semibold">โมเดล</th>
++                                <th class="py-3 px-4 font-semibold text-right">ผลตอบแทนคาดหวัง (ต่อปี)</th>
++                                <th class="py-3 pl-4 font-semibold text-right">Sharpe Ratio</th>
++                            </tr>
++                        </thead>
++                        <tbody>
++                            {% for model in model_comparison %}
++                            <tr class="border-b border-gray-50 {% if model.is_best %}bg-emerald-50{% endif %}">
++                                <td class="py-3 pr-4 font-medium text-gray-700">
++                                    {{ model.name }}
++                                    {% if model.is_best %}
++                                    <span class="ml-2 inline-block text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">ดีที่สุด</span>
++                                    {% endif %}
++                                </td>
++                                <td class="py-3 px-4 text-right {% if model.is_best %}font-bold text-emerald-700{% else %}text-gray-600{% endif %}">
++                                    {{ model.expected_return }}%
++                                </td>
++                                <td class="py-3 pl-4 text-right {% if model.is_best %}font-bold text-emerald-700{% else %}text-gray-600{% endif %}">
++                                    {{ model.sharpe_ratio }}
++                                </td>
++                            </tr>
++                            {% endfor %}
++                        </tbody>
++                    </table>
++                </div>
++
++                <p class="text-xs text-gray-400 mt-4">
++                    * Sharpe Ratio สูงกว่า = ผลตอบแทนที่ปรับด้วยความเสี่ยงดีกว่า (สมมติฐานดอกเบี้ยไร้ความเสี่ยง 2% ต่อปี)
++                </p>
++            </div>
+ 
+         </div>
+     </div>
+diff --git a/dashboard/tests.py b/dashboard/tests.py
+index 8c54aae..edbda57 100644
+--- a/dashboard/tests.py
++++ b/dashboard/tests.py
+@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
+ from django.test import TestCase
+ 
+ from .models import GAResultSnapshot, UserPlan
++from .optimizers import EqualWeightOptimizer, MeanVarianceOptimizer
+ from .services import build_dca_projection, build_saved_ga_summary, normalize_selected_stocks
+ from .tasks import optimize_portfolio_task
+ 
+@@ -68,3 +69,36 @@ class PortfolioServiceTests(TestCase):
+             result = optimize_portfolio_task.delay(plan.id)
+ 
+         self.assertEqual(result, plan.id)
++
++
++class ComparisonOptimizerTests(TestCase):
++    """ทดสอบโมเดล optimization ที่ใช้เปรียบเทียบกับ GA (ขอบเขตข้อ 1.4.3.3-1.4.3.4)."""
++
++    def test_mean_variance_falls_back_to_equal_weight_on_data_error(self):
++        optimizer = MeanVarianceOptimizer()
++        stocks = [type('StockRef', (), {'symbol': s})() for s in ['ADVANC', 'AOT']]
++
++        with patch('dashboard.optimizers.mean_variance.yf.download', side_effect=ValueError("no data")):
++            result = optimizer.optimize(stocks, target_amount=1000000)
++
++        self.assertEqual(result['weights'], {'ADVANC': 0.5, 'AOT': 0.5})
++        self.assertEqual(result['expected_return'], 0.0)
++        self.assertEqual(result['sharpe_ratio'], 0.0)
++
++    def test_equal_weight_falls_back_when_data_unavailable(self):
++        optimizer = EqualWeightOptimizer()
++        stocks = [type('StockRef', (), {'symbol': s})() for s in ['ADVANC', 'AOT', 'CPALL']]
++
++        with patch('dashboard.optimizers.equal_weight.yf.download', side_effect=ValueError("no data")):
++            result = optimizer.optimize(stocks, target_amount=1000000)
++
++        self.assertAlmostEqual(result['weights']['ADVANC'], 1 / 3)
++        self.assertAlmostEqual(result['weights']['AOT'], 1 / 3)
++        self.assertAlmostEqual(result['weights']['CPALL'], 1 / 3)
++
++    def test_empty_stock_list_returns_zeroed_result(self):
++        for optimizer in (MeanVarianceOptimizer(), EqualWeightOptimizer()):
++            result = optimizer.optimize([], target_amount=1000000)
++            self.assertEqual(result['weights'], {})
++            self.assertEqual(result['expected_return'], 0.0)
++            self.assertEqual(result['sharpe_ratio'], 0.0)
+diff --git a/dashboard/views.py b/dashboard/views.py
+index 2e169ca..0d9335f 100644
+--- a/dashboard/views.py
++++ b/dashboard/views.py
+@@ -8,7 +8,7 @@ from django.template.loader import render_to_string
+ from .models import Stock, UserPlan, UserProfile, UserInvestmentRecord, DCAPreset, GAResultSnapshot
+ from .services import build_dca_projection, build_saved_ga_summary, normalize_selected_stocks
+ from .tasks import optimize_portfolio_task
+-from .optimizers import EqualWeightOptimizer, GAOptimizer
++from .optimizers import EqualWeightOptimizer, GAOptimizer, MeanVarianceOptimizer
+ 
+ try:
+     from weasyprint import HTML
+@@ -43,9 +43,37 @@ def dashboard_view(request):
+ 
+     ga_optimizer = GAOptimizer()
+     equal_weight_optimizer = EqualWeightOptimizer()
+-
+-    ga_results = ga_optimizer.optimize([type('StockRef', (), {'symbol': s})() for s in selected_assets], plan.target_amount)
+-    baseline_results = equal_weight_optimizer.optimize([type('StockRef', (), {'symbol': s})() for s in selected_assets], plan.target_amount)
++    mean_variance_optimizer = MeanVarianceOptimizer()
++
++    stock_refs = [type('StockRef', (), {'symbol': s})() for s in selected_assets]
++
++    ga_results = ga_optimizer.optimize(stock_refs, plan.target_amount)
++    baseline_results = equal_weight_optimizer.optimize(stock_refs, plan.target_amount)
++    mean_variance_results = mean_variance_optimizer.optimize(stock_refs, plan.target_amount)
++
++    # ตารางเปรียบเทียบผลลัพธ์ของแต่ละโมเดล (ข้อ 1.4.3.4 ในขอบเขตโครงงาน)
++    model_comparison = [
++        {
++            'name': 'Genetic Algorithm (GA)',
++            'expected_return': round(ga_results.get('expected_return', 0) * 100, 2),
++            'sharpe_ratio': round(ga_results.get('sharpe_ratio', 0), 2),
++        },
++        {
++            'name': 'Mean-Variance (Markowitz)',
++            'expected_return': round(mean_variance_results.get('expected_return', 0) * 100, 2),
++            'sharpe_ratio': round(mean_variance_results.get('sharpe_ratio', 0), 2),
++        },
++        {
++            'name': 'Equal Weight (Baseline)',
++            'expected_return': round(baseline_results.get('expected_return', 0) * 100, 2),
++            'sharpe_ratio': round(baseline_results.get('sharpe_ratio', 0), 2),
++        },
++    ]
++    # ทำเครื่องหมายโมเดลที่ให้ Sharpe Ratio สูงสุดว่าเป็นตัวเลือกที่ดีที่สุด
++    if model_comparison:
++        best_model = max(model_comparison, key=lambda m: m['sharpe_ratio'])
++        for m in model_comparison:
++            m['is_best'] = (m is best_model)
+     
+     # 2. จัดรูปแบบสัดส่วนน้ำหนักสำหรับแสดงผล
+     weights_display = []
+@@ -79,6 +107,7 @@ def dashboard_view(request):
+         'selected_assets': selected_assets,
+         'total_return_percent': f"{current_return_percent:.2f}%",
+         'baseline_weights': baseline_results,
++        'model_comparison': model_comparison,
+         'sharpe_ratio': f"{current_sharpe_ratio:.2f}",
+         'weights_display': sorted(weights_display, key=lambda x: x['percent'], reverse=True),
+         

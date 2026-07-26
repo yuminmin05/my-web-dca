@@ -8,7 +8,7 @@ from django.template.loader import render_to_string
 from .models import Stock, UserPlan, UserProfile, UserInvestmentRecord, DCAPreset, GAResultSnapshot
 from .services import build_dca_projection, build_saved_ga_summary, normalize_selected_stocks
 from .tasks import optimize_portfolio_task
-from .optimizers import EqualWeightOptimizer, GAOptimizer
+from .optimizers import EqualWeightOptimizer, GAOptimizer, MeanVarianceOptimizer
 from .ga_optimizer import run_genetic_algorithm
 
 try:
@@ -43,10 +43,38 @@ def dashboard_view(request):
         selected_assets = normalize_selected_stocks(plan.selected_stocks)
 
     ga_optimizer = GAOptimizer()
+    mean_variance_optimizer = MeanVarianceOptimizer()
     equal_weight_optimizer = EqualWeightOptimizer()
 
-    ga_results = ga_optimizer.optimize([type('StockRef', (), {'symbol': s})() for s in selected_assets], plan.target_amount)
-    baseline_results = equal_weight_optimizer.optimize([type('StockRef', (), {'symbol': s})() for s in selected_assets], plan.target_amount)
+    stock_refs = [type('StockRef', (), {'symbol': s})() for s in selected_assets]
+    ga_results = ga_optimizer.optimize(stock_refs, plan.target_amount)
+    mean_variance_results = mean_variance_optimizer.optimize(stock_refs, plan.target_amount)
+    equal_weight_results = equal_weight_optimizer.optimize(stock_refs, plan.target_amount)
+
+    model_comparison = [
+        {
+            'name': 'GA',
+            'expected_return': round(ga_results.get('expected_return', 0.0) * 100, 2),
+            'sharpe_ratio': round(ga_results.get('sharpe_ratio', 0.0), 2),
+            'is_best': False,
+        },
+        {
+            'name': 'Mean-Variance',
+            'expected_return': round(mean_variance_results.get('expected_return', 0.0) * 100, 2),
+            'sharpe_ratio': round(mean_variance_results.get('sharpe_ratio', 0.0), 2),
+            'is_best': False,
+        },
+        {
+            'name': 'Equal Weight',
+            'expected_return': round(equal_weight_results.get('expected_return', 0.0) * 100, 2),
+            'sharpe_ratio': round(equal_weight_results.get('sharpe_ratio', 0.0), 2),
+            'is_best': False,
+        },
+    ]
+
+    best_model = max(model_comparison, key=lambda item: item['sharpe_ratio'], default=None)
+    if best_model is not None:
+        best_model['is_best'] = True
     
     # 2. จัดรูปแบบสัดส่วนน้ำหนักสำหรับแสดงผล
     weights_display = []
@@ -79,8 +107,9 @@ def dashboard_view(request):
         'set50_stocks': all_stocks,
         'selected_assets': selected_assets,
         'total_return_percent': f"{current_return_percent:.2f}%",
-        'baseline_weights': baseline_results,
+        'baseline_weights': equal_weight_results,
         'sharpe_ratio': f"{current_sharpe_ratio:.2f}",
+        'model_comparison': model_comparison,
         'weights_display': sorted(weights_display, key=lambda x: x['percent'], reverse=True),
         
         # ข้อมูลฟอร์ม

@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from .models import GAResultSnapshot, UserPlan
+from .optimizers import EqualWeightOptimizer, MeanVarianceOptimizer
 from .services import build_dca_projection, build_saved_ga_summary, normalize_selected_stocks
 from .tasks import optimize_portfolio_task
 
@@ -68,3 +69,32 @@ class PortfolioServiceTests(TestCase):
             result = optimize_portfolio_task.delay(plan.id)
 
         self.assertEqual(result, plan.id)
+
+    def test_mean_variance_optimizer_falls_back_when_yfinance_fails(self):
+        optimizer = MeanVarianceOptimizer()
+
+        with patch('dashboard.optimizers.mean_variance.yf.download', side_effect=Exception('boom')):
+            result = optimizer.optimize([type('StockRef', (), {'symbol': 'ADVANC'})()], target_amount=1000)
+
+        self.assertEqual(result['weights'], {'ADVANC': 1.0})
+        self.assertEqual(result['expected_return'], 0.0)
+        self.assertEqual(result['sharpe_ratio'], 0.0)
+
+    def test_equal_weight_optimizer_falls_back_when_yfinance_fails(self):
+        optimizer = EqualWeightOptimizer()
+
+        with patch('dashboard.optimizers.equal_weight.yf.download', side_effect=Exception('boom')):
+            result = optimizer.optimize([type('StockRef', (), {'symbol': 'ADVANC'})()], target_amount=1000)
+
+        self.assertEqual(result['weights'], {'ADVANC': 1.0})
+        self.assertEqual(result['expected_return'], 0.0)
+        self.assertEqual(result['sharpe_ratio'], 0.0)
+
+    def test_optimizers_return_empty_weights_for_empty_stock_list(self):
+        mean_variance = MeanVarianceOptimizer()
+        equal_weight = EqualWeightOptimizer()
+
+        self.assertEqual(mean_variance.optimize([], target_amount=1000)['weights'], {})
+        self.assertEqual(equal_weight.optimize([], target_amount=1000)['weights'], {})
+        self.assertEqual(mean_variance.optimize([], target_amount=1000)['expected_return'], 0.0)
+        self.assertEqual(equal_weight.optimize([], target_amount=1000)['sharpe_ratio'], 0.0)

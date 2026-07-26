@@ -28,10 +28,18 @@ def optimize_portfolio_task(user_plan_id):
     """Run the long-running GA optimization asynchronously and save the result as a snapshot."""
     from .ga_optimizer import run_genetic_algorithm as run_ga_optimization
     from .models import GAResultSnapshot, UserPlan
+    from .services import build_dca_projection
 
     plan = UserPlan.objects.get(id=user_plan_id)
     assets = [symbol.strip() for symbol in plan.selected_stocks.split(',') if symbol.strip()]
     results = run_ga_optimization(assets=assets)
+
+    projection = build_dca_projection(
+        monthly_investment=plan.monthly_investment,
+        duration_years=plan.duration_years,
+        target_amount=plan.target_amount,
+        expected_return=results.get('expected_return', 0.0),
+    )
 
     snapshot = GAResultSnapshot.objects.create(
         user=plan.user,
@@ -42,5 +50,7 @@ def optimize_portfolio_task(user_plan_id):
         duration_years=plan.duration_years,
         target_amount=plan.target_amount,
         final_portfolio_value=results.get('final_portfolio_value', 0),
+        chart_labels=projection['chart_labels'],
+        chart_data=projection['chart_data'],
     )
     return snapshot.id
