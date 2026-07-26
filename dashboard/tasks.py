@@ -53,4 +53,19 @@ def optimize_portfolio_task(user_plan_id):
         chart_labels=projection['chart_labels'],
         chart_data=projection['chart_data'],
     )
+
+    plan.last_expected_return = results.get('expected_return')
+    plan.last_sharpe_ratio = results.get('sharpe_ratio')
+    plan.last_optimized_weights = results.get('weights')
+    plan.last_chart_labels = projection['chart_labels']
+    plan.last_chart_data = projection['chart_data']
+    plan.save(update_fields=[
+        'last_expected_return',
+        'last_sharpe_ratio',
+        'last_optimized_weights',
+        'last_chart_labels',
+        'last_chart_data',
+        'updated_at',
+    ])
+
     return snapshot.id

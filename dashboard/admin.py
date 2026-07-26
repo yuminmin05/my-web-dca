@@ -234,27 +234,33 @@ class UserPlanAdmin(admin.ModelAdmin):
     
     def last_expected_return_display(self, obj):
         if obj.last_expected_return is not None:
-            return format_html('<span style="color: #27ae60; font-weight: bold;">{:.2f}%</span>', obj.last_expected_return * 100)
+            return format_html(
+                '<span style="color: #27ae60; font-weight: bold;">{}</span>',
+                f'{obj.last_expected_return * 100:.2f}%'
+            )
         return '—'
     last_expected_return_display.short_description = 'ผลตอบแทน (%)'
     
     def last_sharpe_ratio_display(self, obj):
         if obj.last_sharpe_ratio is not None:
-            return format_html('<span style="color: #2980b9; font-weight: bold;">{:.2f}</span>', obj.last_sharpe_ratio)
+            return format_html(
+                '<span style="color: #2980b9; font-weight: bold;">{}</span>',
+                f'{obj.last_sharpe_ratio:.2f}'
+            )
         return '—'
     last_sharpe_ratio_display.short_description = 'Sharpe Ratio'
     
     def ga_summary(self, obj):
         if obj.last_expected_return is None or obj.last_sharpe_ratio is None:
-            return format_html('<em style="color: #95a5a6;">ยังไม่ได้คำนวณ</em>')
+            return mark_safe('<em style="color: #95a5a6;">ยังไม่ได้คำนวณ</em>')
         return format_html(
             '<div style="background-color: #ecf0f1; padding: 10px; border-radius: 5px; font-family: monospace;">'
-            '<strong>ผลตอบแทนคาดหวัง:</strong> {:.2f}%<br>'
-            '<strong>Sharpe Ratio:</strong> {:.2f}<br>'
+            '<strong>ผลตอบแทนคาดหวัง:</strong> {}<br>'
+            '<strong>Sharpe Ratio:</strong> {}<br>'
             '<strong>หุ้นที่เลือก:</strong> {}'
             '</div>',
-            obj.last_expected_return * 100,
-            obj.last_sharpe_ratio,
+            f'{obj.last_expected_return * 100:.2f}%',
+            f'{obj.last_sharpe_ratio:.2f}',
             obj.selected_stocks
         )
     ga_summary.short_description = 'สรุปผลลัพธ์ GA (อ่านอย่างเดียว)'
