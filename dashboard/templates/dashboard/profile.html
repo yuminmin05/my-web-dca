@@ -68,12 +68,6 @@
                     <label class="block text-gray-600 font-semibold mb-2">เบอร์โทรศัพท์</label>
                     <p class="text-gray-900 text-lg">{{ profile.phone|default:"ไม่ได้ตั้งค่า" }}</p>
                 </div>
-                <div>
-                    <label class="block text-gray-600 font-semibold mb-2">ภาษาที่ต้องการ</label>
-                    <p class="text-gray-900 text-lg">
-                        {% if profile.preferred_language == 'th' %}ไทย{% else %}English{% endif %}
-                    </p>
-                </div>
             </div>
 
             <!-- Bio -->
