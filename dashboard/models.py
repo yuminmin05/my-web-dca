@@ -100,7 +100,7 @@ class GAResultSnapshot(models.Model):
     weights = models.JSONField(null=True, blank=True)
     chart_labels = models.JSONField(null=True, blank=True)
     chart_data = models.JSONField(null=True, blank=True)
-    final_portfolio_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    final_portfolio_value = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
     monthly_investment = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     duration_years = models.IntegerField(null=True, blank=True)
     target_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)

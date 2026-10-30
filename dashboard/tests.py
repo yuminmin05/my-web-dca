@@ -3,11 +3,28 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.urls import reverse
 
 from .models import GAResultSnapshot, UserPlan
 from .optimizers import EqualWeightOptimizer, MeanVarianceOptimizer
 from .services import build_dca_projection, build_saved_ga_summary, normalize_selected_stocks
 from .tasks import optimize_portfolio_task
+
+
+class PasswordChangeTests(TestCase):
+    def test_password_change_allows_password_shorter_than_eight_characters(self):
+        user = User.objects.create_user(username="password-user", password="old-password")
+        self.client.login(username="password-user", password="old-password")
+
+        response = self.client.post(reverse("password_change"), {
+            "old_password": "old-password",
+            "new_password1": "abc",
+            "new_password2": "abc",
+        })
+
+        self.assertRedirects(response, reverse("profile"))
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("abc"))
 
 
 class PortfolioServiceTests(TestCase):
@@ -97,4 +114,25 @@ class PortfolioServiceTests(TestCase):
         self.assertEqual(mean_variance.optimize([], target_amount=1000)['weights'], {})
         self.assertEqual(equal_weight.optimize([], target_amount=1000)['weights'], {})
         self.assertEqual(mean_variance.optimize([], target_amount=1000)['expected_return'], 0.0)
+        self.assertEqual(equal_weight.optimize([], target_amount=1000)['expected_return'], 0.0)
+        self.assertEqual(mean_variance.optimize([], target_amount=1000)['sharpe_ratio'], 0.0)
         self.assertEqual(equal_weight.optimize([], target_amount=1000)['sharpe_ratio'], 0.0)
+
+    def test_large_snapshot_final_portfolio_value_can_be_stored_and_retrieved(self):
+        user = User.objects.create_user(username='bigvalue', password='secret')
+        value = Decimal('110936145826700.27')
+        snapshot = GAResultSnapshot.objects.create(
+            user=user,
+            expected_return=0.15,
+            sharpe_ratio=1.2,
+            weights={'ADVANC': 0.5, 'AOT': 0.5},
+            final_portfolio_value=value,
+            monthly_investment=Decimal('8000.00'),
+            duration_years=20,
+            target_amount=Decimal('1500000.00'),
+        )
+
+        refreshed = GAResultSnapshot.objects.get(pk=snapshot.pk)
+        self.assertEqual(refreshed.final_portfolio_value, value)
+        self.assertEqual(refreshed.monthly_investment, Decimal('8000.00'))
+        self.assertEqual(refreshed.target_amount, Decimal('1500000.00'))

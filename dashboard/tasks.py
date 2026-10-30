@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 try:
     from celery import shared_task
@@ -41,6 +42,9 @@ def optimize_portfolio_task(user_plan_id):
         expected_return=results.get('expected_return', 0.0),
     )
 
+    raw_value = results.get('final_portfolio_value', 0)
+    final_portfolio_value = Decimal(str(raw_value)) if raw_value is not None else None
+
     snapshot = GAResultSnapshot.objects.create(
         user=plan.user,
         expected_return=results.get('expected_return'),
@@ -49,7 +53,7 @@ def optimize_portfolio_task(user_plan_id):
         monthly_investment=plan.monthly_investment,
         duration_years=plan.duration_years,
         target_amount=plan.target_amount,
-        final_portfolio_value=results.get('final_portfolio_value', 0),
+        final_portfolio_value=final_portfolio_value,
         chart_labels=projection['chart_labels'],
         chart_data=projection['chart_data'],
     )

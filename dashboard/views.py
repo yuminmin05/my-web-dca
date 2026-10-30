@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordChangeView
 from django.urls import reverse_lazy
-from django.http import JsonResponse, FileResponse, HttpResponse
+from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.views.generic import UpdateView
 from django.template.loader import render_to_string
 from .models import Stock, UserPlan, UserProfile, UserInvestmentRecord, DCAPreset, GAResultSnapshot
@@ -23,6 +23,26 @@ from datetime import datetime, timedelta
 import json
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
+
+def safe_snapshot_first(queryset):
+    try:
+        return queryset.first()
+    except InvalidOperation:
+        return None
+
+
+def safe_snapshot_list(queryset):
+    try:
+        return list(queryset)
+    except InvalidOperation:
+        return []
+
+
+def safe_snapshot_get(queryset):
+    try:
+        return queryset.get()
+    except InvalidOperation:
+        raise Http404
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
@@ -90,7 +110,8 @@ def dashboard_view(request):
 
     current_return_percent = ga_results['expected_return'] * 100
     current_sharpe_ratio = ga_results['sharpe_ratio']
-    latest_snapshot = GAResultSnapshot.objects.filter(user=request.user).order_by('-saved_at').first()
+    latest_snapshot = safe_snapshot_first(GAResultSnapshot.objects.filter(user=request.user).order_by('-saved_at'))
+
     saved_ga_summary = build_saved_ga_summary(
         latest_snapshot,
         selected_assets,
@@ -103,6 +124,15 @@ def dashboard_view(request):
     is_target_reached = projection['is_target_reached']
     target_message = projection['target_message']
 
+    def safe_int_display(value):
+        try:
+            return f"{int(value):,}"
+        except Exception:
+            try:
+                return f"{int(float(value)):,}"
+            except Exception:
+                return "0"
+
     context = {
         'set50_stocks': all_stocks,
         'selected_assets': selected_assets,
@@ -113,16 +143,16 @@ def dashboard_view(request):
         'weights_display': sorted(weights_display, key=lambda x: x['percent'], reverse=True),
         
         # ข้อมูลฟอร์ม
-        'monthly_investment': f"{int(plan.monthly_investment):,}",
+        'monthly_investment': safe_int_display(plan.monthly_investment),
         'monthly_investment_raw': plan.monthly_investment,
         'duration_years': plan.duration_years,
         'target_amount_raw': plan.target_amount,
-        'target_amount': f"{int(plan.target_amount):,}",
+        'target_amount': safe_int_display(plan.target_amount),
         
         # ข้อมูลกราฟ
         'chart_labels': chart_labels,
         'chart_data': chart_data,
-        'final_portfolio_value': f"{int(current_value):,}",
+        'final_portfolio_value': safe_int_display(current_value),
         'is_target_reached': is_target_reached,
         'target_message': target_message,
         
@@ -186,10 +216,9 @@ def register_view(request):
         first_name = request.POST.get('first_name', '').strip()
         last_name = request.POST.get('last_name', '').strip()
         phone = request.POST.get('phone', '').strip()
-        preferred_language = request.POST.get('preferred_language', 'th')
         
         # ตรวจสอบว่ากรอกข้อมูลครบครัน
-        if not all([u, p1, p2, first_name, last_name, phone, preferred_language]):
+        if not all([u, p1, p2, first_name, last_name, phone]):
             messages.error(request, 'กรุณากรอกข้อมูลให้ครบถ้วน')
         # ตรวจสอบว่ากรอกรหัสผ่านตรงกันไหม
         elif p1 != p2:
@@ -208,11 +237,10 @@ def register_view(request):
             # สร้างแผนการลงทุนเปล่าๆ ให้ User คนนี้ทันที
             from .models import UserPlan, UserProfile
             UserPlan.objects.create(user=user)
-            # สร้าง UserProfile พร้อมเบอร์โทรและภาษา
+            # สร้าง UserProfile พร้อมเบอร์โทร
             UserProfile.objects.create(
                 user=user,
-                phone=phone,
-                preferred_language=preferred_language
+                phone=phone
             )
             # พยายาม authenticate แล้วล็อกอินอัตโนมัติ
             auth_user = authenticate(username=u, password=p1)
@@ -250,7 +278,6 @@ def profile_edit_view(request):
         # แก้ไขข้อมูล profile
         profile.phone = request.POST.get('phone', '').strip()
         profile.bio = request.POST.get('bio', '').strip()
-        profile.preferred_language = request.POST.get('preferred_language', 'th')
         profile.save()
         
         messages.success(request, 'บันทึกการเปลี่ยนแปลงสำเร็จแล้ว')
@@ -273,8 +300,6 @@ def password_change_view(request):
             messages.error(request, 'รหัสผ่านเก่าไม่ถูกต้อง')
         elif new_password1 != new_password2:
             messages.error(request, 'รหัสผ่านใหม่ไม่ตรงกัน')
-        elif len(new_password1) < 8:
-            messages.error(request, 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร')
         else:
             request.user.set_password(new_password1)
             request.user.save()
